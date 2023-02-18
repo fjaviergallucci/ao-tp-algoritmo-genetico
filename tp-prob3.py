@@ -4,172 +4,367 @@ import time
 from itertools import chain
 from itertools import zip_longest
 import re
+import copy
 
+
+""" Problemas a resolver
+Fuerza bruta:
+1: Dado un número, generar una expresion combinando numeros y operaciones
+2: Generar todas las posibles permutaciones y:
+    2.1: Buscar max
+    2.2: Buscar min
+    2.3: Valores enteros intermedios
+
+Otros algoritmos no fuerza bruta:
+1: Dado un número, generar una expresion combinando numeros y operaciones
+2: Generar todas las posibles permutaciones y:
+    2.1: Buscar max
+    2.2: Buscar min
+    2.3: Valores enteros intermedios
+
+Restricciones:
+-Estructura de las expresiones: 1+2-3*4/5
+-No se pueden repetir los numeros
+-No se pueden repetir las operaciones
+"""
+
+
+# region globals
+"""Region de funciones y constantes"""
 _NUMBERS = '123456789'
 _OPERATIONS = '+-*/'
+_EXPRESSION_PATTERN = r'^[1-9]{1}[\-\+\*\/]{1}[1-9]{1}[\-\+\*\/]{1}[1-9]{1}[\-\+\*\/]{1}[1-9]{1}[\-\+\*\/]{1}[1-9]$'
 
-# region Fuerza bruta
-# def generate_combinations(target=None):
-#     # numbers = list(map("".join, permutations(_NUMBERS, 4)))
-#     # operations = list(map("".join, permutations(_OPERATIONS, 4)))
-#     numbers = permutations(_NUMBERS, 5)
-#     number_combinations = {}
-#     integer_combinations = {}
-#     max = "0"
-#     min = "0"
-#     for number in numbers:
-#         #Se puede pasar este iterador a un lista y no se genera en cada pasada, pero no hace ningun efecto de ejecucion. Mas bien en terminos de uso de memoria es mejor generar el iterador en cada pasada
-#         operations = permutations(_OPERATIONS, 4)
-#         for operation in operations:
-#             expression = "".join((filter(lambda x: x != '', chain.from_iterable(
-#                 zip_longest(number, operation, fillvalue='')))))
-#             value = eval(expression)
-#             save_value = (target is not None and value == target) or target is None
-#             if save_value:
-#                 number_combinations[expression] = value
-#                 if value > eval(max):
-#                     max = expression
-#                 if value < eval(min):
-#                     min = expression
-#                 if abs(value - int(value)) == 0.0:
-#                     integer_combinations[expression] = value
-#     # print(number_combinations)
-#     return number_combinations, integer_combinations, max, min
 
-# start_time = time.time()
-# combinations, integer_combinations, max, min = generate_combinations()
-# print("--- %s segundos ---" % (time.time() - start_time))
-# print(f'Cantidad de expresiones: {len(combinations)}')
-# if max in combinations:
-#     print(f'Max = {max} = {combinations[max]}')
-# if min in combinations:
-#     print(f'Min = {min} = {combinations[min]}')
+def generate_number_yield():
+    """Genera todas las posibles permutaciones de numeros
+
+    Returns:
+      Yield con el numero o permutacion generada.
+    """
+    for number in permutations(_NUMBERS, 5):
+        yield number
+
+
+def generate_operations_yield():
+    """Esta funcion generara todas las posibles permutaciones de operadores
+
+    Returns:
+      Yield con la permutacion generada de los operadores
+    """
+    for operation in permutations(_OPERATIONS, 4):
+        yield operation
+
+
+def generate_expresion(number: str, operators: str):
+    """Genera la expresion dado los numeros y los operadores
+
+    La funcion recorre ambos strings y genera una combinacion de ambos respetando el orden y la estructura esperada
+
+    Args:
+      number: Permutacion de los numeros, por ejemplo "37586"
+      operators: Permutacion de los operadores, por ejemplo: "+/*-"
+
+    Returns:
+      Expression generada
+    """
+    return "".join((filter(lambda x: x != '', chain.from_iterable(
+        zip_longest(number, operators, fillvalue='')))))
+
+
+def expression_is_valid(expression: str):
+    """Valida una expresion dada que cumpla con las reglas
+
+    Args:
+      expression: Expresion a ser evaluada
+
+    Returns:
+      True si la expresion es correcta y cumple con las reglas
+    """
+    unique_genes = "".join(set(expression))
+    return len(unique_genes) == 9 and re.match(_EXPRESSION_PATTERN, expression) and all(operator in unique_genes for operator in _OPERATIONS) and len([number for number in _NUMBERS if number in unique_genes]) == 5
+
 
 # endregion
 
 
+# region Fuerza bruta
+"""
+Fuerza bruta
+1: Dado un número, generar una expresion combinando numeros y operaciones
+2: Generar todas las posibles combinaciones y:
+    2.1: Buscar max
+    2.2: Buscar min
+    2.3: Valores enteros intermedios
+"""
+
+
+def find_expressions(target: int = None):
+    """Funcion principal que genera todas las permutaciones o expresiones posibles y devuelve:
+
+    Args:
+      target: El numero para el cual se desan generar expresiones. Si no se pasa el target, se generaran todas las posibles permutaciones. Si se define el target, se devolveran solo las permutaciones que al ser evaluadas den ese numero
+
+    Returns:
+      number_permutations: Todas las permutaciones encontradas
+      integer_permutations: Permutaciones cuya evaluaciones dan numeros enteros
+      max: Permutacion que devuelve valor maximo
+      min: Permutacion que devuelve valor minimo
+    """
+    number_permutations = {}
+    integer_permutations = {}
+    max = "0"
+    min = "0"
+    # Como las permutaciones de numeros son cientos de miles, usamos un generador para ahorrar memoria y tiempo de procesamiento
+    for number in generate_number_yield():
+        # En el caso particulas de las operaciones se puede pasar este generador a un lista. Pero no hace ninguna diferencia en recursos. Mejor seguir usando generadores
+        for operation in generate_operations_yield():
+            # Como ya tenemos todas las posibles permutaciones de operaciones. Lo que hay que hacer es jutnar el numero generado con el orden de los operadores y asi se obtienen todas las permutacioens de un numero con los operadores
+            expression = generate_expresion(number, operation)
+            value = eval(expression)
+
+            # Determinamos si guardar o no la expresion. Las condiciones para que sea verdadero son:
+            # Si no estoy buscando valor
+            # Si estoy bsucando un target, entonces que sea igual al target
+            if (target is not None and value == target) or target is None:
+                number_permutations[expression] = value
+                # Verificamos si es el nuevo maximo
+                if value > eval(max):
+                    max = expression
+                # Verificamos si es el nuevo minimo
+                if value < eval(min):
+                    min = expression
+                # Lo guardamos si el resultado de la expresion es entero
+                if abs(value - int(value)) == 0.0:
+                    integer_permutations[expression] = value
+    # print(number_combinations)
+    return number_permutations, integer_permutations, max, min
+
+
+# start_time = time.time()
+# expressions, integer_expressions, max, min = find_expressions()
+# print("--- %s segundos ---" % (time.time() - start_time))
+# print(f'Cantidad de expresiones: {len(expressions)}')
+# if max in expressions:
+#     print(f'Max = {max} = {expressions[max]}')
+# if min in expressions:
+#     print(f'Min = {min} = {expressions[min]}')
+
+# print()
+# endregion
+
+
 # region AG
-# Calcular fitness
-# Calcula el fitness de un individuo, el fitness en nuestro caso es simplemente la resta del valor de la expresion con el target buscado, y mientas mas cercano a 0, mejor
-def get_fitness(expression: str, target_value: int):
+"""
+Algoritmo genetico
+2: Generar todas las posibles permutaciones y:
+    2.1: Buscar max
+    2.2: Buscar min
+    2.3: Valores enteros intermedios
+"""
+
+def get_individuals_with_integer_fitness(population:dict):
+    """Devuelve los individuos cuyo fitness es entero
+
+    Calcula el fitness de un individuo, el fitness en nuestro caso es simplemente la evaluacion de la expresion
+
+    Args:
+      individual: Expresion a evaluar
+
+    Returns:
+      El fitness del individuo
+    """
+    individuals = dict(filter(lambda i: abs(i[1] - int(i[1])) == 0.0, population.items()))
+    return individuals
+
+
+def get_fitness(individual: str):
+    """Calcular fitness
+
+    Calcula el fitness de un individuo, el fitness en nuestro caso es simplemente la evaluacion de la expresion
+
+    Args:
+      individual: Expresion a evaluar
+
+    Returns:
+      El fitness del individuo
+    """
     try:
-        value = eval(expression)
-        # return abs(value - target_value)
-        # return 1.0 / (abs(4 - 4) + 0.000001)
-        fitness = 1.0 / (abs(value - target_value) + 0.000001)
-        return fitness
+        return eval(individual)
     except:
-        return float("inf")
+        return 0
 
 
-# Initial Population
-def validate_population(expression: str):
+def population_is_valid(expression: str):
+    """Valida la poblacion
+
+    Valida que los genes que poseen todos los individuos de la poblacion, tienen todos los numeros y operadores al menos una vez
+
+    Args:
+      expression: String que contiene todos los genes sin repetir de todos los individuos de la poblacion a evaluar
+
+    Returns:
+      Verdaro si la expresion contiene todos los numeros y operadores definidos
+    """
     return all(operator in expression for operator in _OPERATIONS) and all(number in expression for number in _NUMBERS)
 
 
-def build_initial_population(population_size: int = 100, target_value: int = None):
-    min_correct_solutions = population_size/4
-    current_correct_solutions = 0
-    population_chromosomes = ""
+def build_initial_population(population_size: int = 100):
+    """Construye poblacion inicial
+
+    Args:
+      population_size: Tamaño de la poblacion, por defecto 100
+
+    Returns:
+      Diccionario con los individuos y su fitness
+    """
+    population_genes = ""
     individuals = {}
     # Repetir mientras:
-    # La poblacion aun no contenga todos los numeros y simbolos
-    # El tamaNo de la poblacion sea menor al que queremos
-    # No tengamos una cantidad minima de indivudos validos
-    while(not validate_population(population_chromosomes) or len(individuals) < population_size or current_correct_solutions < min_correct_solutions):
+    # La poblacion aun no contenga todos los numeros y operadores
+    # El tamaño de la poblacion sea menor al que queremos
+    while(not population_is_valid(population_genes) or len(individuals) < population_size):
         random_numbers = random.sample(_NUMBERS, 5)
+        # No usamos el generador en este caso porque vamos a tomar un numero aleatorio de permutaciones de todo el unvierso posible. Y en cada vuelta repetimos. Como son pocos, no hay impacto
         operations = list(permutations(_OPERATIONS, 4))
         random_operations_length = random.randrange(1, len(operations))
         random.shuffle(operations)
         for j in range(0, random_operations_length):
-            if(len(individuals) < population_size):
-                expression = "".join((filter(lambda x: x != '', chain.from_iterable(
-                    zip_longest(random_numbers, operations[j], fillvalue='')))))
-
-                #ToDo: Refactor
-                valid_individual = eval(expression) == target_value
-                # Si el individuo es valido lo agregamos
-                if valid_individual:
-                    individuals[expression] = get_fitness(
-                        expression, target_value)
-                    population_chromosomes = "".join(
-                        set(population_chromosomes + expression))
-                    current_correct_solutions += 1
-                # Sino, lo agregamos si y solo aun queda espacio para los "no validos"
-                # Asi garantizamos un minimo de individuos validos en la poblacion
-                elif len(individuals) < (population_size - (min_correct_solutions - current_correct_solutions)):
-                    individuals[expression] = get_fitness(
-                        expression, target_value)
-                    population_chromosomes = "".join(
-                        set(population_chromosomes + expression))
+            # Generamos la expresion
+            expression = generate_expresion(random_numbers, operations[j])
+            # Guarda el individuo y su fitness en un diccionario
+            individuals[expression] = get_fitness(expression)
+            # Saca los genes del individuo y los agrega a los genes unicos de la poblacion para luego verificar que la poblacion tiene todos los numeros y operadores
+            population_genes = "".join(set(population_genes + expression))
     return individuals
 
 
-def validate_expression(expression: str):
-    unique_genes = "".join(set(expression))
-    pattern = r'^[1-9]{1}[\-\+\*\/]{1}[1-9]{1}[\-\+\*\/]{1}[1-9]{1}[\-\+\*\/]{1}[1-9]{1}[\-\+\*\/]{1}[1-9]$'
-    return len(unique_genes) == 9 and re.match(pattern, expression) and all(operator in unique_genes for operator in _OPERATIONS) and len([number for number in _NUMBERS if number in unique_genes]) == 5
+def order_population_by_fitness(population: dict, reverse_order: bool = True):
+    """Ordena los sujetos de la poblacion en base al fitness
+
+    Ordenar la poblacion por el fitness
+    El fitness es el valor de la clave en el diccionario
+    population.items() nos retorna tuplas por ejemplo ('1+2-3*4/5', 0.6), por eso ordenamos en el indice [1] que es fitness de esa expresion
+
+    Args:
+      population: Poblacion a ordenar
+      reverse_order: Invierte el orden
+
+    Returns:
+        Poblacion ordenada por fitness
+    """
+    return dict(sorted(population.items(), key=lambda i: i[1], reverse=reverse_order))
 
 
-# Ordenar la poblacion por el fitness
-# El fitness es el valor de la clave en el diccionario
-# population.items() nos retorna tuplas por ejemplo ('1+2-3*4/5', 0.6), por eso ordenamos en el indice [1] que es fitness de esa expresion
-def order_population_by_fitness(population: list):
-    return dict(sorted(population.items(), key=lambda i: i[1], reverse=True))
+def select_individuals_by_ranking(population: dict):
+    """Seleccion de individuos por fitness
 
+    Seleccionamos en base al fitness del individuo (Ranking), recordando que el fitness de una expresion esta como valor dentro del diccionario. Seleccionamos 1/4 de los mayores y 1/4 de los menores
 
-# Selection
-# Seleccionamos en base al fitness del individuo (Ranking), recordando que el fitness de una expresion esta como valor dentro del diccionario
-def select_individuals_by_ranking(population: list, new_population_size: int = 100, target_value:int = None):
+    Args:
+      population: Poblacion
+
+    Returns:
+        Individuos seleccionados
+    """
     population = order_population_by_fitness(population)
-    selected_individuals = list(population.keys())
-    selected_individuals = selected_individuals[:new_population_size//2]
-    selected_individuals = {expression : get_fitness(expression, target_value) for expression in selected_individuals}
+    selected_individuals = list(population.items())
+    selected_individuals = dict(
+        selected_individuals[:_POPULATION_SIZE//4] + selected_individuals[(_POPULATION_SIZE//4)*-1:])
     return selected_individuals
 
 
-# Crossover
-# Realizamos el cruce de los padres usando uniform crossover
-# Las expresiones tienen un conjunto de 9 caracteres, serian 9 genes
-# Como es aleatorio, cada cruce verificamos que la expresion sea una expresion correcta
-def select_gene_from_random_parents(parents:list, gene_index:int):
-    # Seleccionamos al azar el indice del que sera el padre a
+def select_gene_from_random_parents(parents: list, gene_index: int):
+    """Selecciona los genes de los padres en una i-esima posicion
+
+    Args:
+      parents: Lista con los dos padres
+      gene_index: Indice del gen que sacaremos de ambos padres
+
+    Returns:
+        Tupla con dos valores, el primero es el gen del padre A, y el segundo el gen del padre B
+    """
+    # Seleccionamos al azar el indice del que sera el padre a. 0-50 para padre a, 51-100 para padre b
     random_parent = 0 if random.randint(0, 100) < 51 else 1
     parent_a = parents[random_parent]
     parent_b = parents[abs(random_parent-1)]
-    print(parent_a[gene_index], parent_b[gene_index])
     return parent_a[gene_index], parent_b[gene_index]
 
-def cross_parents(parents: list):
+
+def uniform_crossover(parents: list):
+    """Cruce uniforme
+
+    Realizamos el cruce de los padres usando uniform crossover. Las expresiones tienen un conjunto de 9 caracteres, serian 9 genes. Como es aleatorio, cada cruce verificamos que la expresion sea una expresion correcta.
+    Debido a las restricciones del problema. Vamos a repetir la seleccion aleatoria del padre, si el gen en la posicion i-esima de los padres, ya se encuentra en los hijos. Si reintentamos 20 veces y aun no se consigue un gen candidato, regresamos a los mismos padres
+
+    Args:
+      parents: Lista con los dos padres
+
+    Returns:
+        Nuevos hijos generados con cruce uniforme
+    """
     while True:  # seleccion aleatoria del padre para el gen i
         individual_a = ""
         individual_b = ""
         for gene_index in range(0, 9):
-            #Debido a las restricciones del problema. Vamos a repetir la seleccion aleatoria del padre, si el gen en la posicion i de los padres, ya se encuentra en los hijos
+            # Seleccion aleatoria del padre
             retries = 0
-            gene_parent_a, gene_parent_b = select_gene_from_random_parents(parents, gene_index)
+            gene_parent_a, gene_parent_b = select_gene_from_random_parents(
+                parents, gene_index)
+            # Repeticion si los hijos ya tienen el gen elegido
             while gene_parent_a in individual_a or gene_parent_b in individual_b:
                 if retries > 20:
                     return parents[0], parents[1]
-                gene_parent_a, gene_parent_b = select_gene_from_random_parents(parents, gene_index)
+                gene_parent_a, gene_parent_b = select_gene_from_random_parents(
+                    parents, gene_index)
                 retries += 1
 
+            # Agregamos el gen al hijo
             individual_a += gene_parent_a
             individual_b += gene_parent_b
-            
-        if validate_expression(individual_a) and validate_expression(individual_b):
+        # Retornamos a los hijos solo si sus expresiones son validas
+        if expression_is_valid(individual_a) and expression_is_valid(individual_b):
             return individual_a, individual_b
     return None, None
 
-# result1, result2 = cross_parents(["1+2-3*4/5", "1/2*4+6-7"])
-# print(result1)
-# print(result2)
+
+def one_point_crossover(parents: list):
+    """Cruce uniforme
+
+    Realizamos el cruce de los padres usando 1-point crossover. Las expresiones tienen un conjunto de 9 caracteres, serian 9 genes. El punto se elige aleatoriamente y se generan los dos hijos de los dos padres
+
+    Args:
+      parents: Lista con los dos padres
+
+    Returns:
+        Nuevos hijos generados con cruce uniforme
+    """
+    while True:  # seleccion aleatoria del padre para el gen i
+        # Seleccionamos el punto en la secuencia del cromosoma
+        random_point = random.randint(0, len(parents[0])-1)
+
+        # Copiamos los genes a los hijos
+        individual_a = parents[0][:random_point] + parents[1][random_point:]
+        individual_b = parents[1][:random_point] + parents[0][random_point:]
+
+        # Retornamos a los hijos solo si sus expresiones son validas
+        if expression_is_valid(individual_a) and expression_is_valid(individual_b):
+            return individual_a, individual_b
+    return None, None
 
 
-# Mutation
-# Para la mutacion seleccionamos dos caracteres al azar de la expresion y los intercambiamos. Este proceso se repetira hasta que el individuo o expresion generada, sea correcta
 def mutate_population(population: dict):
-    individual, individual_fitness = random.choice(list(population.items()))
+    """Mutar un individuo de la poblacion
+
+    Se selecciona un inviduo al azar y luego para la mutacion seleccionamos dos caracteres al azar de la expresion y los intercambiamos. Este proceso se repetira hasta que el individuo o expresion generada, sea correcta. Luego el indivudo antiguo es eliminado de a poblacion e insertado el nuevo o mutado
+
+    Args:
+      population: Poblacion
+
+    Returns:
+        Poblacion con un individuo mutado
+    """
+    individual, _ = random.choice(list(population.items()))
     del population[individual]
     while True:
         gene_1 = random.randint(0, len(individual)-1)
@@ -182,63 +377,99 @@ def mutate_population(population: dict):
             individual[gene_1+1:gene_2] + \
             individual[gene_1] + individual[gene_2+1:]
 
-        if validate_expression(new_individual):
-            population[new_individual] = get_fitness(new_individual, _TARGET_NUMBER)
+        if expression_is_valid(new_individual):
+            population[new_individual] = get_fitness(new_individual)
             return population
 
 
-# Evaluate score
-# El score sera la cantidad de individuos cuya evaluacion de la expresion es igual al target buscado
-def get_population_score(population: list, target_value: int):
-    population_score = len(
-        list(filter(lambda ind: eval(ind) == target_value, population.keys())))
-    population_score2 = 0
-    for individual in population:
-        if eval(individual) == target_value:
-            population_score2 += 1
-    return population_score
+def get_population_score(population: dict):
+    """Calcula el score de la poblacion
+
+    El score viene dado por la suma total de los valores absolutos de los fitness de cada individuo
+
+    Args:
+      population: Poblacion
+
+    Returns:
+        Suma de los fitness
+    """
+    return sum(map(abs, population.values()))
 
 
-population = build_initial_population(100, 4)
-# population = order_population_by_fitness(initial_population)
-current_generation = 0
+def genetic_algorithm(initial_population:dict):
+    current_generation = 0
+    population = copy.deepcopy(initial_population)
+    """Funcion principal del algoritmo genetico
 
+    Se recibe la poblacion inicial y se procede a generar nuevas generaciones hasta llegar al maximo definido
+
+    Args:
+        initial_population: Poblacion inicial
+
+    Returns:
+        Ultima poblacion generada
+    """
+    while(current_generation < _MAX_GENERATIONS):
+        # seleccionamos los mejores individuos por ranking
+        selected_individuals = select_individuals_by_ranking(population)
+
+        # Nueva generacion vacia
+        new_generation = {}
+        #Ciclo para seleccionar padres al azar y cruzarlos. Los hijos son agregados a la generacion nueva
+        while(len(new_generation) < _POPULATION_SIZE):
+            parent_a_expression, _ = random.choice(
+                list(selected_individuals.items()))
+            parent_b_expression, _ = random.choice(
+                list(selected_individuals.items()))
+            children_a, children_b = uniform_crossover(
+                [parent_a_expression, parent_b_expression])
+            new_generation[children_a] = get_fitness(children_a)
+            new_generation[children_b] = get_fitness(children_b)
+
+        # Guardamos la poblacion actual con su score para historia
+        _GENERATIONS_HISTORY[str(current_generation)] = {
+            "population": list(population.keys()), "score": get_population_score(population)}
+        print(
+            f'Score poblacion {current_generation}: {_GENERATIONS_HISTORY[str(current_generation)]["score"]}')
+
+        # Mutamos y hacemos la nueva generacion la poblacion actual
+        population = mutate_population(new_generation)
+        current_generation += 1
+    
+    return population
+        
 # Constantes
 _GENERATIONS_HISTORY = {}
 _POPULATION_SIZE = 100
 _MAX_GENERATIONS = 100
-_TARGET_SCORE = 70
+# _TARGET_SCORE = 70
 
-###### Numero que estamos buscando #######
-_TARGET_NUMBER = 4
+#Poblacion inicial
+population = build_initial_population(_POPULATION_SIZE)
+initial_population = order_population_by_fitness(population)
 
-while(current_generation < _MAX_GENERATIONS and get_population_score(population, _TARGET_NUMBER) < _TARGET_SCORE):
-    # Guardamos la poblacion actual con su score
-    _GENERATIONS_HISTORY[str(current_generation)] = {
-        "population": list(population.keys()), "score": get_population_score(population, _TARGET_NUMBER)}
+start_time = time.time()
+population = genetic_algorithm(population)
+print("--- %s segundos ---" % (time.time() - start_time))
 
-    # seleccionamos los individuos por ranking
-    selected_individuals = select_individuals_by_ranking(
-        population, _POPULATION_SIZE, _TARGET_NUMBER)
+#Imprimir datos de poblacion inicial para comparar con la final
+print(f'Score poblacion inicial: {get_population_score(initial_population)}')
+max = list(initial_population)[0]
+min = list(initial_population)[-1]
+print(f'Max = {max} = {initial_population[max]}')
+print(f'Min = {min} = {initial_population[min]}')
+print()
 
-    # Nueva generacion vacia
-    new_generation = {}
-    while(len(new_generation) < _POPULATION_SIZE):
-        parent_a_expression, parent_a_fitness = random.choice(
-            list(selected_individuals.items()))
-        parent_b_expression, parent_b_fitness = random.choice(
-            list(selected_individuals.items()))
-        # del selected_individuals[parent_a_expression]
-        # del selected_individuals[parent_b_expression]
-        children_a, children_b = cross_parents(
-            [parent_a_expression, parent_b_expression])
-        new_generation[children_a] = get_fitness(children_a, _TARGET_NUMBER)
-        new_generation[children_b] = get_fitness(children_b, _TARGET_NUMBER)
-
-    population = mutate_population(new_generation)
-    current_generation += 1
-
-
-print(population)
-
+#Imprimir datos de poblacion final
+print(f'*** Poblaciones generadas ***: {len(_GENERATIONS_HISTORY)}')
+print(f'Score poblacion final: {get_population_score(population)}')
+population = order_population_by_fitness(population)
+integer_individuals = get_individuals_with_integer_fitness(population)
+max = list(population)[0]
+min = list(population)[-1]
+print(f'Max = {max} = {population[max]}')
+print(f'Min = {min} = {population[min]}')
+print(f'cantidad idividuos con fitness entero {len(integer_individuals.items())}. Individuos: ')
+print(integer_individuals.items())
+print()
 # endregion
