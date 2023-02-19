@@ -82,7 +82,11 @@ def expression_is_valid(expression: str):
       True si la expresion es correcta y cumple con las reglas
     """
     unique_genes = "".join(set(expression))
-    return len(unique_genes) == 9 and re.match(_EXPRESSION_PATTERN, expression) and all(operator in unique_genes for operator in _OPERATIONS) and len([number for number in _NUMBERS if number in unique_genes]) == 5
+    length_valid = len(unique_genes) == 9
+    pattern_valid = re.match(_EXPRESSION_PATTERN, expression)
+    operators_valid = all(operator in unique_genes for operator in _OPERATIONS)
+    numbers_valid = len([number for number in _NUMBERS if number in unique_genes]) == 5
+    return length_valid and pattern_valid and operators_valid and numbers_valid
 
 
 # endregion
@@ -142,7 +146,7 @@ def find_expressions(target: int = None):
 
 
 # start_time = time.time()
-# expressions, integer_expressions, max, min = find_expressions()
+# expressions, integer_expressions, max, min = find_expressions(36)
 # print("--- %s segundos ---" % (time.time() - start_time))
 # print(f'Cantidad de expresiones: {len(expressions)}')
 # if max in expressions:
@@ -151,15 +155,6 @@ def find_expressions(target: int = None):
 #     print(f'Min = {min} = {expressions[min]}')
 
 # print()
-# endregion
-
-
-# region Busqueda local
-"""
-Busqueda local para resolver
-1: Dado un número, generar una expresion combinando numeros y operaciones
-"""
-
 
 # endregion
 
@@ -167,6 +162,7 @@ Busqueda local para resolver
 # region AG
 """
 Algoritmo genetico para resolver:
+1: Dado un número, generar una expresion combinando numeros y operaciones
 2: Generar todas las posibles permutaciones y:
     2.1: Buscar max
     2.2: Buscar min
@@ -219,6 +215,35 @@ def population_is_valid(expression: str):
       Verdaro si la expresion contiene todos los numeros y operadores definidos
     """
     return all(operator in expression for operator in _OPERATIONS) and all(number in expression for number in _NUMBERS)
+
+
+def get_population_score(population: dict):
+    """Calcula el score de la poblacion
+
+    El score viene dado por la suma total de los valores absolutos de los fitness de cada individuo
+
+    Args:
+      population: Poblacion
+
+    Returns:
+        Suma de los fitness
+    """
+    return sum(map(abs, population.values()))
+
+
+def find_individuals_by_fitness(population: dict, target_value: int):
+    """Busca individuos por un fitness
+
+    Busca todos los individuos de una poblacion que tengan el fitness buscado
+
+    Args:
+      population: Poblacion
+      target_value: Fitness a buscar
+
+    Returns:
+        Diccionario con todos los individuos con el fitness buscado
+    """
+    return dict(filter(lambda i: i[1] == target_value, population.items()))
 
 
 def build_initial_population(population_size: int = 100, target_value:int=None):
@@ -401,37 +426,23 @@ def mutate_population(population: dict):
             return population
 
 
-def get_population_score(population: dict):
-    """Calcula el score de la poblacion
-
-    El score viene dado por la suma total de los valores absolutos de los fitness de cada individuo
-
-    Args:
-      population: Poblacion
-
-    Returns:
-        Suma de los fitness
-    """
-    return sum(map(abs, population.values()))
-
-
-def find_individuals_by_fitness(population: dict, target_value: int):
-    return dict(filter(lambda i: i[1] == target_value, population.items()))
-
 
 def genetic_algorithm(initial_population: dict, target_value: int = None):
-    current_generation = 0
-    population = copy.deepcopy(initial_population)
-    """Funcion principal del algoritmo genetico
+    """Algoritmo genetico
 
-    Se recibe la poblacion inicial y se procede a generar nuevas generaciones hasta llegar al maximo definido
+    Si target_value es definido, generara generaciones hasta conseguir un indivudo que tenga de fitness el valor buscado. Si target_value no es definido, generara generaciones hasta el maximo permitido
 
     Args:
-        initial_population: Poblacion inicial
+      population: Poblacion inicial
+      target_value: Fitness a buscar
 
     Returns:
-        Ultima poblacion generada
+        Poblacion final
     """
+    global _GENERATIONS_HISTORY
+    current_generation = 1
+    population = copy.deepcopy(initial_population)
+    
     while(current_generation < _MAX_GENERATIONS):
         # seleccionamos los mejores individuos por ranking
         selected_individuals = select_individuals_by_ranking(population)
@@ -440,6 +451,11 @@ def genetic_algorithm(initial_population: dict, target_value: int = None):
         new_generation = {}
         # Ciclo para seleccionar padres al azar y cruzarlos. Los hijos son agregados a la generacion nueva
         while(len(new_generation) < _POPULATION_SIZE):
+            #seleccionar padres al azar
+            #Cruzar padres
+            #Agregar individuos a poblacion
+
+            #ToDo estrategia de salida si no puede encontrar nuevos hijos
             parent_a_expression, _ = random.choice(
                 list(selected_individuals.items()))
             parent_b_expression, _ = random.choice(
@@ -464,9 +480,9 @@ def genetic_algorithm(initial_population: dict, target_value: int = None):
         if target_value is not None:
             result = find_individuals_by_fitness(population, target_value)
             if len(result.items()):
-                return result
+                return result, True
 
-    return population
+    return population, False
 
 
 # Constantes
@@ -475,53 +491,64 @@ _POPULATION_SIZE = 100
 _MAX_GENERATIONS = 100
 # _TARGET_SCORE = 70
 
-""" Inicio Ejecucion AG para conseguir expresiones aleatorias, max, min y enteros """
-# # Poblacion inicial
-# population = build_initial_population(_POPULATION_SIZE)
-# initial_population = order_population_by_fitness(population)
+def find_max_min_integers_from_random_population():
+    """Ejecucion AG para conseguir expresiones aleatorias, max, min y enteros """
+    global _GENERATIONS_HISTORY
+    # Poblacion inicial
+    population = build_initial_population(_POPULATION_SIZE)
+    initial_population = order_population_by_fitness(population)
+    start_time = time.time()
+    population, _ = genetic_algorithm(population)
+    end_time = time.time()
 
-# # Imprimir datos de poblacion inicial para comparar con la final
-# print("*** Poblacion inicial ***")
-# print(f'Score poblacion inicial: {get_population_score(initial_population)}')
-# max = list(initial_population)[0]
-# min = list(initial_population)[-1]
-# print(f'Max = {max} = {initial_population[max]}')
-# print(f'Min = {min} = {initial_population[min]}')
-# print()
+    # Imprimir datos de poblacion inicial para comparar con la final
+    print()
+    print("*** Poblacion inicial ***")
+    print(
+        f'Score poblacion inicial: {get_population_score(initial_population)}')
+    max = list(initial_population)[0]
+    min = list(initial_population)[-1]
+    print(f'Max = {max} = {initial_population[max]}')
+    print(f'Min = {min} = {initial_population[min]}')
+    print()
 
-####### Generar expresiones aleatorias para hayar max, min y enteros #######
-# start_time = time.time()
-# population = ga_find_permutations_max_min(population)
-# end_time = time.time()
-# #Imprimir datos de poblacion final
-# print(f'*** Poblaciones generadas ***: {len(_GENERATIONS_HISTORY)}')
-# print("Tiempo total: --- %s segundos ---" % (end_time - start_time))
-# print(f'Score poblacion final: {get_population_score(population)}')
-# population = order_population_by_fitness(population)
-# integer_individuals = get_individuals_with_integer_fitness(population)
-# max = list(population)[0]
-# min = list(population)[-1]
-# print(f'Max = {max} = {population[max]}')
-# print(f'Min = {min} = {population[min]}')
-# print(f'cantidad idividuos con fitness entero {len(integer_individuals.items())}. Individuos: ')
-# print(integer_individuals.items())
-# print()
-
-
-""" Inicio Ejecucion AG para conseguir inviduo con fitness especifico """
-####### Buscar expresiones/individuos a partir de poblacion inicial aleatoria que tengan fitness buscado  #######
-population = build_initial_population(_POPULATION_SIZE, 4)
-initial_population = order_population_by_fitness(population)
-start_time = time.time()
-population = genetic_algorithm(population, 4)
-end_time = time.time()
-# Imprimir datos en caso de buscar un numero particular
-if len(population.items()):
-    print(f'*** Poblaciones generadas hasta encontrar individuo ***: {len(_GENERATIONS_HISTORY)}')
+    ###### Generar expresiones aleatorias para hallar max, min y enteros #######
+    print()
+    print(f'*** Poblaciones generadas ***: {len(_GENERATIONS_HISTORY)}')
     print("Tiempo total: --- %s segundos ---" % (end_time - start_time))
-    print(f'Individuos encontrados {len(population.items())}.\nIndividuos: ')
-else:
-    print(f'Individuo no enontrado')
-print()
+    print(f'Score poblacion final: {get_population_score(population)}')
+    population = order_population_by_fitness(population)
+    integer_individuals = get_individuals_with_integer_fitness(population)
+    max = list(population)[0]
+    min = list(population)[-1]
+    print(f'Max = {max} = {population[max]}')
+    print(f'Min = {min} = {population[min]}')
+    print(
+        f'cantidad idividuos con fitness entero {len(integer_individuals.items())}. Individuos: ')
+    print(integer_individuals.items())
+    print()
+
+
+def find_individual_by_fitness_from_random_initial_population(target_value:int):
+    """Ejecucion AG para conseguir inviduo con fitness especifico """
+    global _GENERATIONS_HISTORY
+    population = build_initial_population(_POPULATION_SIZE, target_value)
+    start_time = time.time()
+    population, found = genetic_algorithm(population, target_value)
+    end_time = time.time()
+    # Imprimir datos en caso de buscar un numero particular
+    if found:
+        print(
+            f'*** Poblaciones generadas hasta encontrar individuo ***: {len(_GENERATIONS_HISTORY)}')
+        print("Tiempo total: --- %s segundos ---" % (end_time - start_time))
+        print(
+            f'Individuos encontrados {len(population.items())}.\nIndividuos:')
+        print(population.items())
+    else:
+        print(f'Individuo no enontrado')
+    print()
 
 # endregion
+
+# find_max_min_integers_from_random_population()
+find_individual_by_fitness_from_random_initial_population(46)
