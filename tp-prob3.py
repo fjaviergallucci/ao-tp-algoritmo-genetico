@@ -85,7 +85,8 @@ def expression_is_valid(expression: str):
     length_valid = len(unique_genes) == 9
     pattern_valid = re.match(_EXPRESSION_PATTERN, expression)
     operators_valid = all(operator in unique_genes for operator in _OPERATIONS)
-    numbers_valid = len([number for number in _NUMBERS if number in unique_genes]) == 5
+    numbers_valid = len(
+        [number for number in _NUMBERS if number in unique_genes]) == 5
     return length_valid and pattern_valid and operators_valid and numbers_valid
 
 
@@ -246,7 +247,7 @@ def find_individuals_by_fitness(population: dict, target_value: int):
     return dict(filter(lambda i: i[1] == target_value, population.items()))
 
 
-def build_initial_population(population_size: int = 100, target_value:int=None):
+def build_initial_population(population_size: int = 100, target_value: int = None):
     """Construye poblacion inicial
 
     Generamos una poblacion inicial aleatoria. Si el parametro target_value es pasado, los individuos generados que tengan ese fitness NO seran agregados a la poblacion, para garantizar que el AG generara al menos una generacion mas
@@ -274,7 +275,7 @@ def build_initial_population(population_size: int = 100, target_value:int=None):
             expression = generate_expresion(random_numbers, operations[j])
             fitness = get_fitness(expression)
 
-            #Si se paso un target_value y el individuo tiene ese fitness, no se guarda. Leer doc arriba
+            # Si se paso un target_value y el individuo tiene ese fitness, no se guarda. Leer doc arriba
             if (target_value is not None and target_value != fitness) or (target_value is None):
                 # Guarda el individuo y su fitness en un diccionario
                 individuals[expression] = fitness
@@ -426,6 +427,48 @@ def mutate_population(population: dict):
             return population
 
 
+def select_random_parents(population: dict):
+    """Selecciona padres al azar de una poblacion
+
+    Args:
+      population: Poblacion de la que se seleccionaran los padres
+
+    Returns:
+        Padres seleccionados
+    """
+    parent_a_expression, _ = random.choice(list(population.items()))
+    parent_b_expression, _ = random.choice(list(population.items()))
+    return parent_a_expression, parent_b_expression
+
+
+def generate_children_from_parents(parent_a: str, parent_b: str, target_generation: dict):
+    """Genera hijos a partir de dos padres
+
+    Se intenta generar dos hijos a partir de los dos padres. Sin embargo los hijos podrian ya existir en la nueva generacion. Por lo tanto se controla generacion infinita con una condicion, si la cantidad de ciclos supera la (cantidad de genes * 2) se rompe el ciclo y se retornan los mismos padres.
+
+    Abstraemos del algoritmo principal la tecnica de cruce, si queremos cambiarla, la cambiamos aqui
+
+    Args:
+      parent_a: Padre A
+      parent_a: Padre B
+      target_generation: Generacion a la que perteneceran los hijos
+
+    Returns:
+        Hijos generados
+    """
+    children_a = ""
+    children_b = ""
+    children_exists = True
+    number_of_attempts = 0
+    while(children_exists):
+        children_a, children_b = uniform_crossover([parent_a, parent_b])
+        children_exists = children_a in target_generation.keys(
+        ) or children_a in target_generation.keys()
+        if number_of_attempts > len(parent_a)*2:
+            return parent_a, parent_b
+        number_of_attempts += 1
+    return children_a, children_b
+
 
 def genetic_algorithm(initial_population: dict, target_value: int = None):
     """Algoritmo genetico
@@ -442,7 +485,7 @@ def genetic_algorithm(initial_population: dict, target_value: int = None):
     global _GENERATIONS_HISTORY
     current_generation = 1
     population = copy.deepcopy(initial_population)
-    
+
     while(current_generation < _MAX_GENERATIONS):
         # seleccionamos los mejores individuos por ranking
         selected_individuals = select_individuals_by_ranking(population)
@@ -451,17 +494,10 @@ def genetic_algorithm(initial_population: dict, target_value: int = None):
         new_generation = {}
         # Ciclo para seleccionar padres al azar y cruzarlos. Los hijos son agregados a la generacion nueva
         while(len(new_generation) < _POPULATION_SIZE):
-            #seleccionar padres al azar
-            #Cruzar padres
-            #Agregar individuos a poblacion
-
-            #ToDo estrategia de salida si no puede encontrar nuevos hijos
-            parent_a_expression, _ = random.choice(
-                list(selected_individuals.items()))
-            parent_b_expression, _ = random.choice(
-                list(selected_individuals.items()))
-            children_a, children_b = uniform_crossover(
-                [parent_a_expression, parent_b_expression])
+            parent_a_expression, parent_b_expression = select_random_parents(selected_individuals)
+            children_a, children_b = generate_children_from_parents(
+                parent_a_expression, parent_b_expression, new_generation)
+            # Agregar individuos a poblacion
             new_generation[children_a] = get_fitness(children_a)
             new_generation[children_b] = get_fitness(children_b)
 
@@ -490,6 +526,7 @@ _GENERATIONS_HISTORY = {}
 _POPULATION_SIZE = 100
 _MAX_GENERATIONS = 100
 # _TARGET_SCORE = 70
+
 
 def find_max_min_integers_from_random_population():
     """Ejecucion AG para conseguir expresiones aleatorias, max, min y enteros """
@@ -529,7 +566,7 @@ def find_max_min_integers_from_random_population():
     print()
 
 
-def find_individual_by_fitness_from_random_initial_population(target_value:int):
+def find_individual_by_fitness_from_random_initial_population(target_value: int):
     """Ejecucion AG para conseguir inviduo con fitness especifico """
     global _GENERATIONS_HISTORY
     population = build_initial_population(_POPULATION_SIZE, target_value)
@@ -550,5 +587,6 @@ def find_individual_by_fitness_from_random_initial_population(target_value:int):
 
 # endregion
 
+
 # find_max_min_integers_from_random_population()
-find_individual_by_fitness_from_random_initial_population(46)
+find_individual_by_fitness_from_random_initial_population(15)
