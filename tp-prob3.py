@@ -154,16 +154,27 @@ def find_expressions(target: int = None):
 # endregion
 
 
+# region Busqueda local
+"""
+Busqueda local para resolver
+1: Dado un número, generar una expresion combinando numeros y operaciones
+"""
+
+
+# endregion
+
+
 # region AG
 """
-Algoritmo genetico
+Algoritmo genetico para resolver:
 2: Generar todas las posibles permutaciones y:
     2.1: Buscar max
     2.2: Buscar min
     2.3: Valores enteros intermedios
 """
 
-def get_individuals_with_integer_fitness(population:dict):
+
+def get_individuals_with_integer_fitness(population: dict):
     """Devuelve los individuos cuyo fitness es entero
 
     Calcula el fitness de un individuo, el fitness en nuestro caso es simplemente la evaluacion de la expresion
@@ -174,7 +185,8 @@ def get_individuals_with_integer_fitness(population:dict):
     Returns:
       El fitness del individuo
     """
-    individuals = dict(filter(lambda i: abs(i[1] - int(i[1])) == 0.0, population.items()))
+    individuals = dict(filter(lambda i: abs(
+        i[1] - int(i[1])) == 0.0, population.items()))
     return individuals
 
 
@@ -209,11 +221,14 @@ def population_is_valid(expression: str):
     return all(operator in expression for operator in _OPERATIONS) and all(number in expression for number in _NUMBERS)
 
 
-def build_initial_population(population_size: int = 100):
+def build_initial_population(population_size: int = 100, target_value:int=None):
     """Construye poblacion inicial
+
+    Generamos una poblacion inicial aleatoria. Si el parametro target_value es pasado, los individuos generados que tengan ese fitness NO seran agregados a la poblacion, para garantizar que el AG generara al menos una generacion mas
 
     Args:
       population_size: Tamaño de la poblacion, por defecto 100
+      target_value: Fitness a buscar
 
     Returns:
       Diccionario con los individuos y su fitness
@@ -232,10 +247,14 @@ def build_initial_population(population_size: int = 100):
         for j in range(0, random_operations_length):
             # Generamos la expresion
             expression = generate_expresion(random_numbers, operations[j])
-            # Guarda el individuo y su fitness en un diccionario
-            individuals[expression] = get_fitness(expression)
-            # Saca los genes del individuo y los agrega a los genes unicos de la poblacion para luego verificar que la poblacion tiene todos los numeros y operadores
-            population_genes = "".join(set(population_genes + expression))
+            fitness = get_fitness(expression)
+
+            #Si se paso un target_value y el individuo tiene ese fitness, no se guarda. Leer doc arriba
+            if (target_value is not None and target_value != fitness) or (target_value is None):
+                # Guarda el individuo y su fitness en un diccionario
+                individuals[expression] = fitness
+                # Saca los genes del individuo y los agrega a los genes unicos de la poblacion para luego verificar que la poblacion tiene todos los numeros y operadores
+                population_genes = "".join(set(population_genes + expression))
     return individuals
 
 
@@ -396,7 +415,11 @@ def get_population_score(population: dict):
     return sum(map(abs, population.values()))
 
 
-def genetic_algorithm(initial_population:dict):
+def find_individuals_by_fitness(population: dict, target_value: int):
+    return dict(filter(lambda i: i[1] == target_value, population.items()))
+
+
+def genetic_algorithm(initial_population: dict, target_value: int = None):
     current_generation = 0
     population = copy.deepcopy(initial_population)
     """Funcion principal del algoritmo genetico
@@ -415,7 +438,7 @@ def genetic_algorithm(initial_population:dict):
 
         # Nueva generacion vacia
         new_generation = {}
-        #Ciclo para seleccionar padres al azar y cruzarlos. Los hijos son agregados a la generacion nueva
+        # Ciclo para seleccionar padres al azar y cruzarlos. Los hijos son agregados a la generacion nueva
         while(len(new_generation) < _POPULATION_SIZE):
             parent_a_expression, _ = random.choice(
                 list(selected_individuals.items()))
@@ -435,41 +458,70 @@ def genetic_algorithm(initial_population:dict):
         # Mutamos y hacemos la nueva generacion la poblacion actual
         population = mutate_population(new_generation)
         current_generation += 1
-    
+
+        # Si estamos buscando un individuo en particual, caso de expresion dado un numero
+        # Retornamos una poblacion solo con el individuo encontrado
+        if target_value is not None:
+            result = find_individuals_by_fitness(population, target_value)
+            if len(result.items()):
+                return result
+
     return population
-        
+
+
 # Constantes
 _GENERATIONS_HISTORY = {}
 _POPULATION_SIZE = 100
 _MAX_GENERATIONS = 100
 # _TARGET_SCORE = 70
 
-#Poblacion inicial
-population = build_initial_population(_POPULATION_SIZE)
+""" Inicio Ejecucion AG para conseguir expresiones aleatorias, max, min y enteros """
+# # Poblacion inicial
+# population = build_initial_population(_POPULATION_SIZE)
+# initial_population = order_population_by_fitness(population)
+
+# # Imprimir datos de poblacion inicial para comparar con la final
+# print("*** Poblacion inicial ***")
+# print(f'Score poblacion inicial: {get_population_score(initial_population)}')
+# max = list(initial_population)[0]
+# min = list(initial_population)[-1]
+# print(f'Max = {max} = {initial_population[max]}')
+# print(f'Min = {min} = {initial_population[min]}')
+# print()
+
+####### Generar expresiones aleatorias para hayar max, min y enteros #######
+# start_time = time.time()
+# population = ga_find_permutations_max_min(population)
+# end_time = time.time()
+# #Imprimir datos de poblacion final
+# print(f'*** Poblaciones generadas ***: {len(_GENERATIONS_HISTORY)}')
+# print("Tiempo total: --- %s segundos ---" % (end_time - start_time))
+# print(f'Score poblacion final: {get_population_score(population)}')
+# population = order_population_by_fitness(population)
+# integer_individuals = get_individuals_with_integer_fitness(population)
+# max = list(population)[0]
+# min = list(population)[-1]
+# print(f'Max = {max} = {population[max]}')
+# print(f'Min = {min} = {population[min]}')
+# print(f'cantidad idividuos con fitness entero {len(integer_individuals.items())}. Individuos: ')
+# print(integer_individuals.items())
+# print()
+
+
+""" Inicio Ejecucion AG para conseguir inviduo con fitness especifico """
+####### Buscar expresiones/individuos a partir de poblacion inicial aleatoria que tengan fitness buscado  #######
+population = build_initial_population(_POPULATION_SIZE, 4)
 initial_population = order_population_by_fitness(population)
-
 start_time = time.time()
-population = genetic_algorithm(population)
-print("--- %s segundos ---" % (time.time() - start_time))
-
-#Imprimir datos de poblacion inicial para comparar con la final
-print(f'Score poblacion inicial: {get_population_score(initial_population)}')
-max = list(initial_population)[0]
-min = list(initial_population)[-1]
-print(f'Max = {max} = {initial_population[max]}')
-print(f'Min = {min} = {initial_population[min]}')
+population = genetic_algorithm(population, 4)
+end_time = time.time()
+# Imprimir datos en caso de buscar un numero particular
+if len(population.items()):
+    print(f'*** Poblaciones generadas hasta encontrar individuo ***: {len(_GENERATIONS_HISTORY)}')
+    print("Tiempo total: --- %s segundos ---" % (end_time - start_time))
+    print(f'Individuos encontrados {len(population.items())}.\nIndividuos: ')
+else:
+    print(f'Individuo no enontrado')
 print()
 
-#Imprimir datos de poblacion final
-print(f'*** Poblaciones generadas ***: {len(_GENERATIONS_HISTORY)}')
-print(f'Score poblacion final: {get_population_score(population)}')
-population = order_population_by_fitness(population)
-integer_individuals = get_individuals_with_integer_fitness(population)
-max = list(population)[0]
-min = list(population)[-1]
-print(f'Max = {max} = {population[max]}')
-print(f'Min = {min} = {population[min]}')
-print(f'cantidad idividuos con fitness entero {len(integer_individuals.items())}. Individuos: ')
-print(integer_individuals.items())
-print()
 # endregion
