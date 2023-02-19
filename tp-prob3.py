@@ -74,10 +74,10 @@ def generate_expresion(number: str, operators: str):
 
 def expression_is_valid(expression: str):
     """Valida una expresión dada que cumpla con las reglas
-    
+
     Args:
         expression: Expresión a ser evaluada
-        
+
     Returns:
         True si la expresión es correcta y cumple con las reglas
     """
@@ -103,18 +103,17 @@ Fuerza bruta
     2.3: Valores enteros intermedios
 """
 
-
 def find_expressions(target: int = None):
-    """Función principal que genera todas las permutaciones o expresiones posibles y devuelve:
+    """Funcion principal que genera todas las permutaciones o expresiones posibles y devuelve:
 
     Args:
-      target: El numero para el cual se desean generar expresiones. Si no se pasa el target, se generaran todas las posibles permutaciones. Si se define el target, se devolverán solo las permutaciones que al ser evaluadas den ese numero
+      target: El numero para el cual se desan generar expresiones. Si no se pasa el target, se generaran todas las posibles permutaciones. Si se define el target, se devolveran solo las permutaciones que al ser evaluadas den ese numero
 
     Returns:
       number_permutations: Todas las permutaciones encontradas
-      integer_permutations: Permutaciones cuya evaluaciones dan números enteros
-      max: Permutacion que devuelve valor máximo
-      min: Permutacion que devuelve valor mínimo
+      integer_permutations: Permutaciones cuya evaluaciones dan numeros enteros
+      max: Permutacion que devuelve valor maximo
+      min: Permutacion que devuelve valor minimo
     """
     number_permutations = {}
     integer_permutations = {}
@@ -128,10 +127,10 @@ def find_expressions(target: int = None):
             expression = generate_expresion(number, operation)
             value = eval(expression)
 
-            # Determinamos si guardar o no la expresion. Las condiciones para que sea verdadero son:
-            # Si no estoy buscando valor
-            # Si estoy bsucando un target, entonces que sea igual al target
-            if (target is not None and value == target) or target is None:
+            # Si estamos buscando un target y la expresion generada lo cumple, la devolvemos, sino, continuamos
+            if target is not None and value == target:
+                return {expression: value}, None, None, None
+            elif target is None:
                 number_permutations[expression] = value
                 # Verificamos si es el nuevo maximo
                 if value > eval(max):
@@ -146,14 +145,30 @@ def find_expressions(target: int = None):
     return number_permutations, integer_permutations, max, min
 
 
+#Buscar expresiones para el numero
+_NUMBER_TO_SEARCH = 350
+start_time = time.time()
+expressions, _, _, _ = find_expressions(_NUMBER_TO_SEARCH)
+print("--- %s segundos ---" % (time.time() - start_time))
+print(f'Expresion encontrada: {expressions}')
+
+
+# #Encontrar max, min, enteros intermedios
 # start_time = time.time()
-# expressions, integer_expressions, max, min = find_expressions(36)
+# expressions, integer_expressions, max, min = find_expressions()
 # print("--- %s segundos ---" % (time.time() - start_time))
 # print(f'Cantidad de expresiones: {len(expressions)}')
 # if max in expressions:
 #     print(f'Max = {max} = {expressions[max]}')
 # if min in expressions:
 #     print(f'Min = {min} = {expressions[min]}')
+# print(f'Cantidad de expresiones con valores enteros: {len(integer_expressions)}')
+# print(f'Primeras 10 expresiones con valores enteros encontradas:')
+# count = 0
+# for expresion in expressions:
+#     if count <= 10:
+#         count += 1
+#         print(expresion)
 
 # print()
 
@@ -590,4 +605,4 @@ def find_individual_by_fitness_from_random_initial_population(target_value: int)
 
 
 # find_max_min_integers_from_random_population()
-find_individual_by_fitness_from_random_initial_population(15)
+# find_individual_by_fitness_from_random_initial_population(15)
